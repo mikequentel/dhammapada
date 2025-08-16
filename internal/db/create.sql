@@ -1,4 +1,5 @@
--- for reference
+-- convenience script to run this SQL exists at:
+-- dhammapada/internal/db/create_database.sh
 CREATE TABLE IF NOT EXISTS dhammapada_quotes (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   verse_number INTEGER UNIQUE NOT NULL,
