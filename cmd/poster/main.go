@@ -13,7 +13,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"time"
 
@@ -22,18 +21,18 @@ import (
 	"github.com/dghubble/oauth1"
 )
 
-type Quote struct {
-	ID          int64
-	VerseNumber int
-	Text        string
-	ImagePath   string
+type Text struct {
+	ID     int64
+	Label  string   // e.g., "151" or "58–59"
+	Body   string   // verse text
+	Images []string // 0..n filesystem paths (we'll cap to 4 on post)
 }
 
 func main() {
 	log.SetFlags(0)
 
 	// --- Config (env) ---
-	dbPath := envOr("DHAMMAPADA_DB", "./dhammapada.sqlite")
+	dbPath := envOr("DHAMMAPADA_DB", "./data/dhammapada.sqlite")
 	dryRun := os.Getenv("DRY_RUN") == "1"
 
 	ck := os.Getenv("X_CONSUMER_KEY")
@@ -61,56 +60,127 @@ func main() {
 	defer db.Close()
 	must(db.Ping())
 
-	// --- pick a random unposted quote ---
-	q, err := getRandomUnpostedQuote(context.Background(), db)
+	// --- pick a random unposted text + images ---
+	t, err := getRandomUnpostedTextWithImages(context.Background(), db)
 	must(err)
 
-	// --- format status text (truncate to ~280 incl. hashtags/attribution) ---
-	status := formatStatus(q)
+	status := formatStatus(t.Label, t.Body)
 
-	// --- check image file ---
-	if err := ensureFile(q.ImagePath); err != nil {
-		log.Fatalf("image missing or unreadable: %s (%v)", q.ImagePath, err)
-	}
-
-	// --- post (or dry-run preview) ---
+	// --- Dry-run preview ---
 	if dryRun {
 		fmt.Println("DRY RUN ✅ (no network calls)")
-		fmt.Printf("Will post:\n---\n%s\n---\n", status)
-		fmt.Printf("Image: %s\n", q.ImagePath)
+		fmt.Printf("Status:\n---\n%s\n---\n", status)
+		if len(t.Images) == 0 {
+			fmt.Println("Images: (none)")
+		} else {
+			fmt.Println("Images:")
+			for _, p := range t.Images {
+				fmt.Println(" -", p)
+			}
+		}
 		os.Exit(0)
 	}
 
-	// OAuth1 HTTP client (user context)
+	// --- OAuth1 user-context HTTP client ---
 	httpClient := newOAuth1HTTPClient(ck, cs, at, as)
 
-	// 1) Upload media (simple upload for ≤5MB still images)
-	mediaIDStr, err := uploadMediaSimple(httpClient, q.ImagePath)
+	// --- upload up to 4 images ---
+	mediaIDs, err := uploadImages(httpClient, t.Images)
 	must(err)
 
-	// 2) Post Tweet (v2) with media
-	tweetID, err := createTweetV2(httpClient, status, []string{mediaIDStr})
+	// --- create tweet (v2) with media ---
+	tweetID, err := createTweetV2(httpClient, status, mediaIDs)
 	must(err)
-
 	log.Printf("Posted tweet ID %s", tweetID)
 
-	// Mark as posted
-	must(markPosted(context.Background(), db, q.ID))
-	log.Printf("Marked verse %d (row id %d) as posted at %s", q.VerseNumber, q.ID, time.Now().Format(time.RFC3339))
+	// --- mark as posted ---
+	_, err = db.ExecContext(context.Background(),
+		`UPDATE texts SET posted_at = CURRENT_TIMESTAMP, x_post_id = ? WHERE id = ?`,
+		tweetID, t.ID)
+	must(err)
+
+	log.Printf("Marked text_id=%d (label=%s) as posted at %s", t.ID, t.Label, time.Now().Format(time.RFC3339))
 }
 
-func envOr(key, def string) string {
-	if v := os.Getenv(key); v != "" {
-		return v
+// ===================== DB =====================
+
+func getRandomUnpostedTextWithImages(ctx context.Context, db *sql.DB) (*Text, error) {
+	const pick = `
+SELECT id, label, text_body
+FROM texts
+WHERE posted_at IS NULL
+ORDER BY RANDOM()
+LIMIT 1;
+`
+	t := &Text{}
+	if err := db.QueryRowContext(ctx, pick).Scan(&t.ID, &t.Label, &t.Body); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, fmt.Errorf("no unposted texts remain")
+		}
+		return nil, err
 	}
-	return def
-}
 
-func must(err error) {
+	const imgs = `
+SELECT path
+FROM images
+WHERE text_id = ?
+ORDER BY ord
+LIMIT 4;`
+	rows, err := db.QueryContext(ctx, imgs, t.ID)
 	if err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var p string
+		if err := rows.Scan(&p); err != nil {
+			return nil, err
+		}
+		// sanity check the file
+		if err := ensureFile(p); err != nil {
+			return nil, fmt.Errorf("image missing or unreadable: %s (%w)", p, err)
+		}
+		t.Images = append(t.Images, p)
+	}
+	return t, rows.Err()
 }
+
+// ===================== Status text =====================
+
+func formatStatus(label, body string) string {
+	const (
+		attribution = "— Dhammapada (F. Max Müller)"
+		hashtags    = "#Buddhism #Dhammapada #Buddha"
+		maxLen      = 280
+	)
+	header := fmt.Sprintf("Verse %s — ", label)
+	tail := " " + attribution + " " + hashtags
+	body = strings.TrimSpace(body)
+
+	text := header + body + tail
+	if runeLen(text) <= maxLen {
+		return text
+	}
+	ellipsis := "…"
+	avail := maxLen - runeLen(header) - runeLen(tail) - runeLen(ellipsis)
+	if avail < 20 {
+		avail = 20
+	}
+	trunc := truncateRunes(body, avail)
+	return header + trunc + ellipsis + tail
+}
+
+func runeLen(s string) int { return len([]rune(s)) }
+func truncateRunes(s string, n int) string {
+	rs := []rune(s)
+	if n >= len(rs) {
+		return s
+	}
+	return string(rs[:n])
+}
+
+// ===================== Files =====================
 
 func ensureFile(path string) error {
 	fi, err := os.Stat(path)
@@ -125,82 +195,46 @@ func ensureFile(path string) error {
 		return err
 	}
 	defer f.Close()
-	_, _ = f.Read(make([]byte, 1)) // permissions sanity check
+	_, _ = f.Read(make([]byte, 1)) // permission sanity check
 	return nil
 }
 
-func getRandomUnpostedQuote(ctx context.Context, db *sql.DB) (*Quote, error) {
-	const sqlq = `
-SELECT id, verse_number, quote, image_path
-FROM dhammapada_quotes
-WHERE posted_at IS NULL
-ORDER BY RANDOM()
-LIMIT 1;
-`
-	row := db.QueryRowContext(ctx, sqlq)
-	q := &Quote{}
-	if err := row.Scan(&q.ID, &q.VerseNumber, &q.Text, &q.ImagePath); err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return nil, fmt.Errorf("no unposted quotes remain")
-		}
-		return nil, err
-	}
-	return q, nil
-}
+// ===================== X (Twitter) =====================
 
-func markPosted(ctx context.Context, db *sql.DB, id int64) error {
-	_, err := db.ExecContext(ctx, `UPDATE dhammapada_quotes SET posted_at = CURRENT_TIMESTAMP WHERE id = ?`, id)
-	return err
-}
-
-func formatStatus(q *Quote) string {
-	const (
-		attribution = "— Dhammapada (F. Max Müller)"
-		hashtags    = "#Buddhism #Dhammapada #Buddha"
-		maxLen      = 280
-	)
-	body := strings.TrimSpace(q.Text)
-	header := fmt.Sprintf("Verse %d — ", q.VerseNumber)
-	tail := " " + attribution + " " + hashtags
-
-	text := header + body + tail
-	if len([]rune(text)) <= maxLen {
-		return text
-	}
-
-	ellipsis := "…"
-	reserve := len([]rune(tail)) + len([]rune(ellipsis))
-	head := []rune(header)
-	bodyRunes := []rune(body)
-	avail := maxLen - len(head) - reserve
-	if avail < 20 {
-		avail = 20
-	}
-	if avail > len(bodyRunes) {
-		avail = len(bodyRunes)
-	}
-	trunc := string(bodyRunes[:avail])
-	return string(head) + trunc + ellipsis + tail
-}
-
-// --- OAuth1 HTTP client (user context) ---
-
+// OAuth1 user-context HTTP client
 func newOAuth1HTTPClient(consumerKey, consumerSecret, accessToken, accessSecret string) *http.Client {
 	cfg := oauth1.NewConfig(consumerKey, consumerSecret)
 	tok := oauth1.NewToken(accessToken, accessSecret)
 	return cfg.Client(context.Background(), tok)
 }
 
-// --- Media upload (v1.1 simple upload) ---
+// Upload multiple images (simple upload, ≤5MB each). Returns media_id strings.
+func uploadImages(httpClient *http.Client, paths []string) ([]string, error) {
+	if len(paths) == 0 {
+		return nil, nil
+	}
+	if len(paths) > 4 {
+		paths = paths[:4]
+	}
+	ids := make([]string, 0, len(paths))
+	for _, p := range paths {
+		id, err := uploadMediaSimple(httpClient, p)
+		if err != nil {
+			return nil, fmt.Errorf("upload %s: %w", p, err)
+		}
+		ids = append(ids, id)
+	}
+	return ids, nil
+}
+
+// --- v1.1 media/upload (simple upload) ---
 
 type mediaUploadResp struct {
-	MediaID          int64  `json:"media_id"`
-	MediaIDString    string `json:"media_id_string"`
-	ExpiresAfterSecs int    `json:"expires_after_secs"`
+	MediaID       int64  `json:"media_id"`
+	MediaIDString string `json:"media_id_string"`
 }
 
 func uploadMediaSimple(httpClient *http.Client, imagePath string) (string, error) {
-	// Simple upload: for images <= 5MB
 	// Endpoint: https://upload.twitter.com/1.1/media/upload.json
 	f, err := os.Open(imagePath)
 	if err != nil {
@@ -244,16 +278,16 @@ func uploadMediaSimple(httpClient *http.Client, imagePath string) (string, error
 	if err := json.NewDecoder(resp.Body).Decode(&r); err != nil {
 		return "", err
 	}
-	if r.MediaIDString == "" && r.MediaID != 0 {
-		r.MediaIDString = strconv.FormatInt(r.MediaID, 10)
+	if r.MediaIDString != "" {
+		return r.MediaIDString, nil
 	}
-	if r.MediaIDString == "" {
-		return "", fmt.Errorf("media upload: missing media_id_string")
+	if r.MediaID != 0 {
+		return fmt.Sprintf("%d", r.MediaID), nil
 	}
-	return r.MediaIDString, nil
+	return "", fmt.Errorf("media upload: missing media_id")
 }
 
-// --- Create Tweet (v2) ---
+// --- v2 create tweet ---
 
 type createTweetReq struct {
 	Text  string            `json:"text"`
@@ -307,30 +341,18 @@ func createTweetV2(httpClient *http.Client, text string, mediaIDs []string) (str
 	return r.Data.ID, nil
 }
 
-// --- helpers for reading image MIME ---
+// ===================== misc =====================
 
-func readImage(path string) ([]byte, string, error) {
-	f, err := os.Open(path)
+func envOr(key, def string) string {
+	if v := os.Getenv(key); v != "" {
+		return v
+	}
+	return def
+}
+
+func must(err error) {
 	if err != nil {
-		return nil, "", err
+		log.Fatal(err)
 	}
-	defer f.Close()
-	b, err := io.ReadAll(f)
-	if err != nil {
-		return nil, "", err
-	}
-	ext := strings.ToLower(filepath.Ext(path))
-	mime := "image/jpeg"
-	switch ext {
-	case ".png":
-		mime = "image/png"
-	case ".gif":
-		mime = "image/gif"
-	case ".jpg", ".jpeg":
-		mime = "image/jpeg"
-	case ".webp":
-		mime = "image/webp"
-	}
-	return b, mime, nil
 }
 
