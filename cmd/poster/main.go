@@ -51,8 +51,8 @@ func main() {
 	defer db.Close()
 	must(db.Ping())
 
-	// --- picks a random unposted text + images ---
-	t, err := getRandomUnpostedTextWithImages(context.Background(), db)
+	// --- picks a random unposted text; derive images from label ---
+	t, err := getRandomUnpostedTextAndImages(context.Background(), db)
 	must(err)
 
 	status := formatStatus(t.Label, t.Body)
@@ -93,9 +93,9 @@ func main() {
 	log.Printf("Marked text_id=%d (label=%s) as posted at %s", t.ID, t.Label, time.Now().Format(time.RFC3339))
 }
 
-// ===================== DB =====================
+// ===================== DB + image derivation =====================
 
-func getRandomUnpostedTextWithImages(ctx context.Context, db *sql.DB) (*model.Text, error) {
+func getRandomUnpostedTextAndImages(ctx context.Context, db *sql.DB) (*model.Text, error) {
 	const pick = `
 SELECT id, label, text_body
 FROM texts
@@ -111,30 +111,78 @@ LIMIT 1;
 		return nil, err
 	}
 
-	const imgs = `
-SELECT path
-FROM images
-WHERE text_id = ?
-ORDER BY ord
-LIMIT 4;`
-	rows, err := db.QueryContext(ctx, imgs, t.ID)
+	paths, err := deriveImagePaths(t.Label)
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	t.Images = paths
+	return t, nil
+}
 
-	for rows.Next() {
-		var p string
-		if err := rows.Scan(&p); err != nil {
-			return nil, err
-		}
-		// sanity checks the file
-		if err := ensureFile(p); err != nil {
-			return nil, fmt.Errorf("image missing or unreadable: %s (%w)", p, err)
-		}
-		t.Images = append(t.Images, p)
+// deriveImagePaths returns up to 4 existing image paths based on the label.
+//
+// Conventions supported (in order):
+//
+//	images/<norm>.jpg|.png|.webp
+//	images/<norm>-1.jpg|.png|.webp
+//	images/<norm>-2.jpg|.png|.webp
+//	images/<norm>-3.jpg|.png|.webp
+//	images/<norm>-4.jpg|.png|.webp
+//
+// where <norm> is the label normalized:
+//   - ", " and "," -> "-" (e.g., "58, 59" -> "58-59")
+//   - "–" (en dash) -> "-"
+//   - spaces removed
+func deriveImagePaths(label string) ([]string, error) {
+	norm := normalizeLabel(label)
+	dir := "images"
+
+	var candidates []string
+	add := func(stem string) {
+		candidates = append(candidates,
+			filepath.Join(dir, stem+".jpg"),
+			filepath.Join(dir, stem+".png"),
+			filepath.Join(dir, stem+".webp"),
+		)
 	}
-	return t, rows.Err()
+	add(norm)
+	add(norm + "-1")
+	add(norm + "-2")
+	add(norm + "-3")
+	add(norm + "-4")
+
+	var out []string
+	seen := map[string]bool{}
+	for _, p := range candidates {
+		if existsFile(p) && !seen[p] {
+			// sanity check readability
+			if err := ensureFile(p); err != nil {
+				return nil, fmt.Errorf("image unreadable: %s (%w)", p, err)
+			}
+			out = append(out, p)
+			seen[p] = true
+			if len(out) == 4 { // X cap
+				break
+			}
+		}
+	}
+	// ok if zero images; tweet will be text-only
+	return out, nil
+}
+
+func normalizeLabel(label string) string {
+	s := strings.TrimSpace(label)
+	s = strings.ReplaceAll(s, ", ", "-")
+	s = strings.ReplaceAll(s, ",", "-")
+	s = strings.ReplaceAll(s, "–", "-")
+	// remove all spaces for filenames
+	s = strings.ReplaceAll(s, " ", "")
+	return s
+}
+
+func existsFile(p string) bool {
+	fi, err := os.Stat(p)
+	return err == nil && !fi.IsDir()
 }
 
 // ===================== Status text =====================
