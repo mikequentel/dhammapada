@@ -19,14 +19,15 @@ import (
 	_ "modernc.org/sqlite"
 
 	"github.com/dghubble/oauth1"
+	"github.com/mikequentel/dhammapada/internal/model"
 )
 
-type Text struct {
-	ID     int64
-	Label  string   // e.g., "151" or "58–59"
-	Body   string   // verse text
-	Images []string // 0..n filesystem paths (we'll cap to 4 on post)
-}
+// type Text struct {
+// 	ID     int64
+// 	Label  string   // eg: "151" or "58–59"
+// 	Body   string   // verse text
+// 	Images []string // 0..n filesystem paths (we'll cap to 4 on post)
+// }
 
 func main() {
 	log.SetFlags(0)
@@ -104,7 +105,7 @@ func main() {
 
 // ===================== DB =====================
 
-func getRandomUnpostedTextWithImages(ctx context.Context, db *sql.DB) (*Text, error) {
+func getRandomUnpostedTextWithImages(ctx context.Context, db *sql.DB) (*model.Text, error) {
 	const pick = `
 SELECT id, label, text_body
 FROM texts
@@ -112,7 +113,7 @@ WHERE posted_at IS NULL
 ORDER BY RANDOM()
 LIMIT 1;
 `
-	t := &Text{}
+	t := &model.Text{}
 	if err := db.QueryRowContext(ctx, pick).Scan(&t.ID, &t.Label, &t.Body); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, fmt.Errorf("no unposted texts remain")
@@ -227,12 +228,12 @@ func uploadImages(httpClient *http.Client, paths []string) ([]string, error) {
 	return ids, nil
 }
 
-// --- v1.1 media/upload (simple upload) ---
+// // --- v1.1 media/upload (simple upload) ---
 
-type mediaUploadResp struct {
-	MediaID       int64  `json:"media_id"`
-	MediaIDString string `json:"media_id_string"`
-}
+// type mediaUploadResp struct {
+// 	MediaID       int64  `json:"media_id"`
+// 	MediaIDString string `json:"media_id_string"`
+// }
 
 func uploadMediaSimple(httpClient *http.Client, imagePath string) (string, error) {
 	// Endpoint: https://upload.twitter.com/1.1/media/upload.json
@@ -274,7 +275,7 @@ func uploadMediaSimple(httpClient *http.Client, imagePath string) (string, error
 		return "", fmt.Errorf("media upload failed: status=%d body=%s", resp.StatusCode, string(b))
 	}
 
-	var r mediaUploadResp
+	var r model.MediaUploadResp
 	if err := json.NewDecoder(resp.Body).Decode(&r); err != nil {
 		return "", err
 	}
@@ -287,26 +288,26 @@ func uploadMediaSimple(httpClient *http.Client, imagePath string) (string, error
 	return "", fmt.Errorf("media upload: missing media_id")
 }
 
-// --- v2 create tweet ---
+// // --- v2 create tweet ---
 
-type createTweetReq struct {
-	Text  string            `json:"text"`
-	Media *createTweetMedia `json:"media,omitempty"`
-}
-type createTweetMedia struct {
-	MediaIDs []string `json:"media_ids"`
-}
-type createTweetResp struct {
-	Data struct {
-		ID   string `json:"id"`
-		Text string `json:"text"`
-	} `json:"data"`
-}
+// type createTweetReq struct {
+// 	Text  string            `json:"text"`
+// 	Media *createTweetMedia `json:"media,omitempty"`
+// }
+// type createTweetMedia struct {
+// 	MediaIDs []string `json:"media_ids"`
+// }
+// type createTweetResp struct {
+// 	Data struct {
+// 		ID   string `json:"id"`
+// 		Text string `json:"text"`
+// 	} `json:"data"`
+// }
 
 func createTweetV2(httpClient *http.Client, text string, mediaIDs []string) (string, error) {
-	reqBody := createTweetReq{Text: text}
+	reqBody := model.TweetReq{Text: text}
 	if len(mediaIDs) > 0 {
-		reqBody.Media = &createTweetMedia{MediaIDs: mediaIDs}
+		reqBody.Media = &model.TweetMedia{MediaIDs: mediaIDs}
 	}
 
 	var buf bytes.Buffer
@@ -331,7 +332,7 @@ func createTweetV2(httpClient *http.Client, text string, mediaIDs []string) (str
 		return "", fmt.Errorf("create tweet failed: status=%d body=%s", resp.StatusCode, string(b))
 	}
 
-	var r createTweetResp
+	var r model.TweetResp
 	if err := json.NewDecoder(resp.Body).Decode(&r); err != nil {
 		return "", err
 	}
@@ -355,4 +356,3 @@ func must(err error) {
 		log.Fatal(err)
 	}
 }
-
