@@ -189,11 +189,11 @@ func existsFile(p string) bool {
 
 func formatStatus(label, body string) string {
 	const (
-		attribution = "— Dhammapada (F. Max Müller)"
-		hashtags    = "#Buddhism #Dhammapada #Buddha"
+		attribution = "— Dhammapada (F Max Müller)"
+		hashtags    = "#buddhism #dhammapada #buddha #enlightenment #siddharthagautama"
 		maxLen      = 280
 	)
-	header := fmt.Sprintf("Verse %s — ", label)
+	header := fmt.Sprintf("%s: ", label)
 	tail := " " + attribution + " " + hashtags
 	body = strings.TrimSpace(body)
 
