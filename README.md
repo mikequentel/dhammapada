@@ -2,7 +2,9 @@
 
 ## About
 
-Posts entries from The Dhammapada to X.
+Posts entries from The Dhammapada to X at:
+
+[portablebuddha](https://x.com/portablebuddha)
 
 ## Pre-reqs
 
