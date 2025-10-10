@@ -17,4 +17,14 @@ Generate:
 
 ## Steps
 
-1. 
+1. Set the following environment variables:
+```
+# Do you want to just do a dry run? Then set this to 1.
+DRY_RUN=1
+
+# X API SECRETS
+X_CONSUMER_KEY
+X_CONSUMER_SECRET
+X_ACCESS_TOKEN
+X_ACCESS_SECRET
+```

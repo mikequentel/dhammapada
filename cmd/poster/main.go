@@ -34,17 +34,14 @@ func main() {
 	at := os.Getenv("X_ACCESS_TOKEN")
 	as := os.Getenv("X_ACCESS_SECRET")
 
-	// Allow running without creds if DRY_RUN=1
-	if !dryRun {
-		for k, v := range map[string]string{
-			"X_CONSUMER_KEY":    ck,
-			"X_CONSUMER_SECRET": cs,
-			"X_ACCESS_TOKEN":    at,
-			"X_ACCESS_SECRET":   as,
-		} {
-			if v == "" {
-				log.Fatalf("missing required env var: %s", k)
-			}
+	for k, v := range map[string]string{
+		"X_CONSUMER_KEY":    ck,
+		"X_CONSUMER_SECRET": cs,
+		"X_ACCESS_TOKEN":    at,
+		"X_ACCESS_SECRET":   as,
+	} {
+		if v == "" {
+			log.Fatalf("missing required env var: %s", k)
 		}
 	}
 
@@ -54,13 +51,13 @@ func main() {
 	defer db.Close()
 	must(db.Ping())
 
-	// --- pick a random unposted text + images ---
+	// --- picks a random unposted text + images ---
 	t, err := getRandomUnpostedTextWithImages(context.Background(), db)
 	must(err)
 
 	status := formatStatus(t.Label, t.Body)
 
-	// --- Dry-run preview ---
+	// --- dry-run preview ---
 	if dryRun {
 		fmt.Println("DRY RUN ✅ (no network calls)")
 		fmt.Printf("Status:\n---\n%s\n---\n", status)
@@ -78,16 +75,16 @@ func main() {
 	// --- OAuth1 user-context HTTP client ---
 	httpClient := newOAuth1HTTPClient(ck, cs, at, as)
 
-	// --- upload up to 4 images ---
+	// --- uploads up to 4 images ---
 	mediaIDs, err := uploadImages(httpClient, t.Images)
 	must(err)
 
-	// --- create tweet (v2) with media ---
+	// --- creates tweet (v2) with media ---
 	tweetID, err := createTweetV2(httpClient, status, mediaIDs)
 	must(err)
 	log.Printf("Posted tweet ID %s", tweetID)
 
-	// --- mark as posted ---
+	// --- marks as posted ---
 	_, err = db.ExecContext(context.Background(),
 		`UPDATE texts SET posted_at = CURRENT_TIMESTAMP, x_post_id = ? WHERE id = ?`,
 		tweetID, t.ID)
@@ -131,7 +128,7 @@ LIMIT 4;`
 		if err := rows.Scan(&p); err != nil {
 			return nil, err
 		}
-		// sanity check the file
+		// sanity checks the file
 		if err := ensureFile(p); err != nil {
 			return nil, fmt.Errorf("image missing or unreadable: %s (%w)", p, err)
 		}
@@ -202,7 +199,7 @@ func newOAuth1HTTPClient(consumerKey, consumerSecret, accessToken, accessSecret 
 	return cfg.Client(context.Background(), tok)
 }
 
-// Upload multiple images (simple upload, ≤5MB each). Returns media_id strings.
+// Uploads multiple images (simple upload, ≤5MB each). Returns media_id strings.
 func uploadImages(httpClient *http.Client, paths []string) ([]string, error) {
 	if len(paths) == 0 {
 		return nil, nil
@@ -232,7 +229,7 @@ func uploadMediaSimple(httpClient *http.Client, imagePath string) (string, error
 	var buf bytes.Buffer
 	w := multipart.NewWriter(&buf)
 
-	// Field name must be "media"
+	// field name must be "media"
 	part, err := w.CreateFormFile("media", filepath.Base(imagePath))
 	if err != nil {
 		return "", err

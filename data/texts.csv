@@ -82,7 +82,7 @@ id,label,text_body
 82,82,"Wise people, after they have listened to the laws, become serene, like a deep, smooth, and still lake."
 83,83,"Good men indeed walk (wanly) under all circumstances; good men speak not out of a desire for sensual gratification, whether touched by happiness or sorrow wise people never appear elated or depressed."
 84,84,"If, whether for his own sake, or for the sake of others, a man wishes neither for a son, nor for wealth, nor for lordship, and if he does not wish for his own success by unfair means, then he is good, wise, and virtuous."
-85,85,Few are there among men who arrive at the other shore (become Arhats), the other people here run up and down the shore.,
+85,85,"Few are there among men who arrive at the other shore (become Arhats), the other people here run up and down the shore."
 86,86,"But those who, when the law has been well preached to them, follow the law, will pass over the dominion of death, however difficult to cross."
 87,"87, 88","A wise man should leave the dark state (of ordinary life), and follow the bright state (of the Bhikshu) After going from his home to a homeless state, he should in his retirement look for enjoyment where enjoyment seemed difficult Leaving all pleasures behind, and calling nothing his own, the wise man should purge himself from all the troubles of the mind."
 89,89,"Those whose mind is well grounded in the (seven) elements of knowledge, who without clinging to anything, rejoice in freedom fiom attachment, whose appetites have been conquered, and who are full of light, they are free (even) in this world."
@@ -159,10 +159,10 @@ id,label,text_body
 164,164,"The foolish man who scorns the rule of the venerable (Arahat), of the elect (Ariya), of the virtuous, and follows a false doctrine; he bears fruit to his own destruction, like the fruits of the Kanaka reed."
 165,165,"By oneself the evil is done, by oneself one suffers, by oneself evil is left undone, by oneself one is purified. The pure and the impure (stand and fall) by themselves; no one can purify another."
 166,166,"Let no one forget his own duty for the sake of another’s, however great; let a man, after he has discerned his own duty, be always attentive to his duty."
-167,167,Do not follow the evil law! Do not live on in thoughtlessness! Do not follow false doctrine! Be not a friend of the world.
-168,168,Rouse thyself! Do not be idle! Follow the law of virtue! The virtuous rests in bliss in this world and in the next.
-169,169,Follow the law of virtue, do not follow that of sin. The virtuous rests in bliss in this world and in the next.,
-170,170,Look upon the world as you would on a bubble, look upon it as you would on a mirage, the king of death does not see him who thus looks down upon the world.
+167,167,"Do not follow the evil law! Do not live on in thoughtlessness! Do not follow false doctrine! Be not a friend of the world."
+168,168,"Rouse thyself! Do not be idle! Follow the law of virtue! The virtuous rests in bliss in this world and in the next."
+169,169,"Follow the law of virtue, do not follow that of sin. The virtuous rests in bliss in this world and in the next."
+170,170,"Look upon the world as you would on a bubble, look upon it as you would on a mirage, the king of death does not see him who thus looks down upon the world."
 171,171,"Come, look at this world, glittering like a royal chariot; the foolish are immersed in it, but the wise do not touch it."
 172,172,"He who formerly was reckless and afterwards became sober, brightens up this world, like the moon when freed from clouds."
 173,173,"He whose evil deeds are covered by good deeds, brightens up this world, like the moon when freed from clouds."
@@ -250,7 +250,7 @@ id,label,text_body
 261,261,"He in whom there is truth, virtue, pity, restraint, moderation, he who is free from impurity and is wise, he is called an elder."
 262,262,"An envious, stingy, dishonest man does not become respectable by means of much talking only, or by the beauty of his complexion."
 263,263,"He in whom all this is destroyed, and taken out with the very root, he, when freed from hatred and wise, is called respectable."
-264,264,Not by tonsure does an undisciplined man who speaks falsehood become a Samana, can a man be a Samana who is still held captive by desire and greediness?,
+264,264,"Not by tonsure does an undisciplined man who speaks falsehood become a Samana, can a man be a Samana who is still held captive by desire and greediness?"
 265,265,"He who always quiets the evil, whether small or large, he is called a Samana (a quiet man), because he has quieted all evil."
 266,266,"A man is not a mendicant (Bhikshu) simply because he asks others for alms; he who adopts the whole law is a Bhikshu, not he who only begs."
 267,267,"He who is above good and evil, who is chaste, who with care passes through the world, he indeed is called a Bhikshu."
@@ -260,10 +260,10 @@ id,label,text_body
 273,273,"The best of ways is the eightfold, the best of truths the four words, the best of virtues passionlessness; the best of men he who has eyes to see."
 274,274,"This is the way, there is no other that leads to the purifying of intelligence. Go on this path!This is the confusion of Mara (the tempter)."
 275,275,"If you go on this way, you will make an end of pain! The way was preached by me, when I had understood the removal of the thorns (in the flesh)."
-276,276,You yourself must make an effort. The Tathigatas (Buddhas) are only preachers. The thoughtful who enter the way are freed from the bondage of Mara.
-277,277,'All created things perish'--he who knows and sees this becomes passive in pain, this is the way to purity.,
-278,278,'Allcreated things are grief and pain’--he who knows and sees this becomes passive in pain, this is the way that leads to purity.,
-279,279,'All forms are unreal’--he who knows and sees this becomes passive in pain, this is the way that leads to purity.,
+276,276,"You yourself must make an effort. The Tathigatas (Buddhas) are only preachers. The thoughtful who enter the way are freed from the bondage of Mara."
+277,277,"'All created things perish'--he who knows and sees this becomes passive in pain, this is the way to purity."
+278,278,"'Allcreated things are grief and pain’--he who knows and sees this becomes passive in pain, this is the way that leads to purity."
+279,279,"'All forms are unreal’--he who knows and sees this becomes passive in pain, this is the way that leads to purity."
 280,280,"He who does not rouse himself when it is time to rise, who, though young and strong, is full of sloth, whose will and thought are weak--that lazy and idle man never finds the way to knowledge."
 281,281,"Watching his speech, well restrained in mind, let a man never commit any wrong with his body! Let a man but keep these three roads of action clear, and he will achieve the way which is taught by the wise."
 282,282,"Through zeal knowledge is gotten, through lack of zeal knowledge is lost; let a man who knows this double path of gain and loss thus place himself that knowledge may grow."
@@ -291,7 +291,7 @@ id,label,text_body
 304,304,"Good people shine from afar, like the snowy mountains; bad people are not seen, like arrows shot by night."
 305,305,"Sitting alone, lying down alone, walking alone without ceasing, and alone subduing himself, let a man be happy near the edge of a forest."
 306,306,"He who says what is not, goes to hell; he also who, having done a thing, says I have not done it. After death both are equal, they are men with evil deeds in the next world."
-307,307,Many men whose shoulders are covered with the yellow gown are ill-conditioned and unrestrained--such evil-doers by their evil deeds go to hell.
+307,307,"Many men whose shoulders are covered with the yellow gown are ill-conditioned and unrestrained--such evil-doers by their evil deeds go to hell."
 308,308,"Better it would be to swallow a heated iron ball, like flaring fire, than that a bad unrestrained fellow should live on the charity of the land."
 309,309,"Four things does a reckless man gain who covets his neighbours wife: demerit, an uncomfortable bed, thirdly, punishment, and lastly, hell."
 310,310,"There is demerit, and the evil way (to hell); there is the short pleasure of the frightened in the arms of the frightened, and the king imposes heavy punishment; therefore, let no man think of his neighbour’s wife."
@@ -344,7 +344,7 @@ id,label,text_body
 357,357,"The fields are damaged by weeds; mankind is damaged by hatred; therefore, a gift bestowed on those who do not hate brings great reward."
 358,358,"The fields are damaged by weeds; mankind is damaged by vanity; therefore, a gift bestowed on those who are free from vanity brings great reward."
 359,359,"The fields are damaged by weeds; mankind is damaged by lust; therefore, a gift bestowed on those who are free from lust brings great reward."
-360,360,Restraint in the eye is good; good is restraint in the ear; in the nose restraint is good; good is restraint in the tongue.
+360,360,"Restraint in the eye is good; good is restraint in the ear; in the nose restraint is good; good is restraint in the tongue."
 361,361,"In the body restraint is good; good is restraint in speech; in thought restraint is good; good is restraint in all things. A Bhikshu, restrained in all things, is freed from all pain."
 362,362,"He who controls his hand, he who controls his feet, he who controls his speech, he who is well controlled, he who delights inwardly, who is collected, who is solitary and content--him they call Bhikshu."
 363,363,"The Bhikshu who controls his mouth, who speaks wisely and calmly, who teaches the meaning and the law--his word is sweet."
@@ -381,7 +381,7 @@ id,label,text_body
 394,394,"What is the use of platted hair, O fool; what of the raiment of goat-skins? Within thee there is ravening, but the outside thou makest clean."
 395,395,"The man who wears dirty raiments, who is emaciated and covered with veins, who meditates alone in the forest—him I call indeed a Brahmana."
 396,396,"I do not call a man Brahmana because of his origin or of his mother. He is indeed arrogant, and he is wealthy; but the poor, who is free from all attachments--him I call indeed a Brahmana."
-397,397,Him I call indeed a Brahmana who after cutting all fetters never trembles; is free from bonds and unshackled.
+397,397,"Him I call indeed a Brahmana who after cutting all fetters never trembles; is free from bonds and unshackled."
 398,398,"Him I call indeed a Brahmana who after cutting the strap and the thong, the rope with all that pertains to it, has destroyed all obstacles, and is awakened."
 399,399,"Him I call indeed a Brahmana who, though he has committed no offence, endures reproach, stripes, and bonds; who has endurance for his force, and strength for his army."
 400,400,"Him I call indeed a Brahmana who is free from anger, dutiful, virtuous, without appetites; who is subdued, and has received his last body."
