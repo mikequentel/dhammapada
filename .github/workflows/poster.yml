@@ -1,0 +1,60 @@
+---
+name: dhammapada_verse_to_x
+
+on:
+  schedule:
+    # 13:00 UTC daily (09:00 Toronto during EDT; adjust for DST if you want)
+    - cron: '0 13 * * *'
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: poster-daily
+  cancel-in-progress: false
+
+jobs:
+  post:
+    runs-on: ubuntu-latest
+    steps:
+      - name: checkout
+        uses: actions/checkout@v4
+
+      - name: go_setup
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+
+      - name: cache_build
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
+      - name: build_poster
+        run: |
+          go mod tidy
+          go build -o poster ./cmd/poster
+
+      # adds random jitter (0–600s)
+      - name: random_jitter
+        run: |
+          J=$(( RANDOM % 600 ))
+          echo "Sleeping ${J}s to add jitter…"
+          sleep "$J"
+
+      - name: run_poster
+        env:
+          DHAMMAPADA_DB: ./data/dhammapada.sqlite
+          X_CONSUMER_KEY:    ${{ secrets.X_CONSUMER_KEY }}
+          X_CONSUMER_SECRET: ${{ secrets.X_CONSUMER_SECRET }}
+          X_ACCESS_TOKEN:    ${{ secrets.X_ACCESS_TOKEN }}
+          X_ACCESS_SECRET:   ${{ secrets.X_ACCESS_SECRET }}
+        run: |
+          ./poster
+
