@@ -22,13 +22,6 @@ import (
 	"github.com/mikequentel/dhammapada/internal/model"
 )
 
-// type Text struct {
-// 	ID     int64
-// 	Label  string   // eg: "151" or "58–59"
-// 	Body   string   // verse text
-// 	Images []string // 0..n filesystem paths (we'll cap to 4 on post)
-// }
-
 func main() {
 	log.SetFlags(0)
 
@@ -228,13 +221,6 @@ func uploadImages(httpClient *http.Client, paths []string) ([]string, error) {
 	return ids, nil
 }
 
-// // --- v1.1 media/upload (simple upload) ---
-
-// type mediaUploadResp struct {
-// 	MediaID       int64  `json:"media_id"`
-// 	MediaIDString string `json:"media_id_string"`
-// }
-
 func uploadMediaSimple(httpClient *http.Client, imagePath string) (string, error) {
 	// Endpoint: https://upload.twitter.com/1.1/media/upload.json
 	f, err := os.Open(imagePath)
@@ -287,22 +273,6 @@ func uploadMediaSimple(httpClient *http.Client, imagePath string) (string, error
 	}
 	return "", fmt.Errorf("media upload: missing media_id")
 }
-
-// // --- v2 create tweet ---
-
-// type createTweetReq struct {
-// 	Text  string            `json:"text"`
-// 	Media *createTweetMedia `json:"media,omitempty"`
-// }
-// type createTweetMedia struct {
-// 	MediaIDs []string `json:"media_ids"`
-// }
-// type createTweetResp struct {
-// 	Data struct {
-// 		ID   string `json:"id"`
-// 		Text string `json:"text"`
-// 	} `json:"data"`
-// }
 
 func createTweetV2(httpClient *http.Client, text string, mediaIDs []string) (string, error) {
 	reqBody := model.TweetReq{Text: text}
