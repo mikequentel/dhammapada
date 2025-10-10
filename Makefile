@@ -11,16 +11,15 @@ lint:
 
 clean:
 	go clean -i ./...
+	rm -fv ./bin/poster || true
 
 # builds binaries into ./bin/
 build:
 	mkdir -p bin
-	go build -o bin/extract ./cmd/extract
 	go build -o bin/poster  ./cmd/poster
 
 # installs binaries into $GOBIN
 install:
-	go install ./cmd/extract
 	go install ./cmd/poster
 
 # all
