@@ -30,3 +30,5 @@ X_CONSUMER_SECRET
 X_ACCESS_TOKEN
 X_ACCESS_SECRET
 ```
+
+2. Build using the `Makefile`: `make build`
