@@ -56,7 +56,7 @@ jobs:
           X_ACCESS_TOKEN:    ${{ secrets.X_ACCESS_TOKEN }}
           X_ACCESS_SECRET:   ${{ secrets.X_ACCESS_SECRET }}
         run: |
-          set -e
+          set -eo pipefail
           ./poster 2>&1 | tee poster.log
           echo "### Poster output" >> $GITHUB_STEP_SUMMARY
           echo '' >> $GITHUB_STEP_SUMMARY
