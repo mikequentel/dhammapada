@@ -238,6 +238,50 @@ func ensureFile(path string) error {
 	return nil
 }
 
+// ===================== X (Twitter) error diagnostics =====================
+
+type xErrorV2 struct {
+	Title  string `json:"title"`
+	Detail string `json:"detail"`
+	Type   string `json:"type"`
+}
+
+type xErrorV1 struct {
+	Errors []struct {
+		Code    int    `json:"code"`
+		Message string `json:"message"`
+	} `json:"errors"`
+}
+
+func diagnoseHTTPError(resp *http.Response, body []byte, endpoint string) string {
+	access := resp.Header.Get("x-access-level")
+	rateL := resp.Header.Get("x-rate-limit-limit")
+	rateR := resp.Header.Get("x-rate-limit-remaining")
+	rateT := resp.Header.Get("x-rate-limit-reset")
+	txid := resp.Header.Get("x-transaction-id")
+	xtime := resp.Header.Get("x-response-time")
+
+	// Try v2-style error first.
+	var v2 xErrorV2
+	if json.Unmarshal(body, &v2) == nil && (v2.Title != "" || v2.Detail != "") {
+		return fmt.Sprintf("%s %d: %s | %s | type=%s | x-access-level=%s x-rate-limit=%s/%s reset=%s txid=%s rtime=%s | body=%s",
+			endpoint, resp.StatusCode, v2.Title, v2.Detail, v2.Type, access, rateR, rateL, rateT, txid, xtime, string(body))
+	}
+	// Try v1.1-style error array.
+	var v1 xErrorV1
+	if json.Unmarshal(body, &v1) == nil && len(v1.Errors) > 0 {
+		var parts []string
+		for _, e := range v1.Errors {
+			parts = append(parts, fmt.Sprintf("code=%d msg=%q", e.Code, e.Message))
+		}
+		return fmt.Sprintf("%s %d: %s | x-access-level=%s x-rate-limit=%s/%s reset=%s txid=%s rtime=%s | body=%s",
+			endpoint, resp.StatusCode, strings.Join(parts, "; "), access, rateR, rateL, rateT, txid, xtime, string(body))
+	}
+	// Fallback.
+	return fmt.Sprintf("%s %d: x-access-level=%s x-rate-limit=%s/%s reset=%s txid=%s rtime=%s | body=%s",
+		endpoint, resp.StatusCode, access, rateR, rateL, rateT, txid, xtime, string(body))
+}
+
 // ===================== X (Twitter) =====================
 
 // OAuth1 user-context HTTP client
@@ -303,7 +347,8 @@ func uploadMediaSimple(httpClient *http.Client, imagePath string) (string, error
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		b, _ := io.ReadAll(resp.Body)
-		return "", fmt.Errorf("media upload failed: status=%d body=%s", resp.StatusCode, string(b))
+		msg := diagnoseHTTPError(resp, b, "POST /1.1/media/upload.json")
+		return "", fmt.Errorf(msg)
 	}
 
 	var r model.MediaUploadResp
@@ -344,7 +389,8 @@ func createTweetV2(httpClient *http.Client, text string, mediaIDs []string) (str
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		b, _ := io.ReadAll(resp.Body)
-		return "", fmt.Errorf("create tweet failed: status=%d body=%s", resp.StatusCode, string(b))
+		msg := diagnoseHTTPError(resp, b, "POST /2/tweets")
+		return "", fmt.Errorf(msg)
 	}
 
 	var r model.TweetResp

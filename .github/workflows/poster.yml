@@ -56,5 +56,12 @@ jobs:
           X_ACCESS_TOKEN:    ${{ secrets.X_ACCESS_TOKEN }}
           X_ACCESS_SECRET:   ${{ secrets.X_ACCESS_SECRET }}
         run: |
-          ./poster
-
+          set -o pipefail
+          ./poster 2>&1 | tee poster.log
+          poster_status=${PIPESTATUS[0]}
+          echo "### Poster output" >> $GITHUB_STEP_SUMMARY
+          echo '' >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          tail -n 200 poster.log >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          exit "$poster_status"
