@@ -1,4 +1,4 @@
-.PHONY: all default fmt lint clean build install
+.PHONY: all default fmt lint clean build install test
 
 default: all
 
@@ -21,6 +21,9 @@ build:
 # installs binaries into $GOBIN
 install:
 	go install ./cmd/poster
+
+test:
+	go test -v ./cmd/poster/
 
 # all
 all: fmt lint clean install build
