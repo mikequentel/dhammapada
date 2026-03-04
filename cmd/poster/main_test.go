@@ -208,6 +208,34 @@ func TestEnsureFile(t *testing.T) {
 	}
 }
 
+// ===================== labelStems =====================
+
+func TestLabelStems(t *testing.T) {
+	tests := []struct {
+		label string
+		want  []string
+	}{
+		{"151", []string{"151"}},
+		{"58, 59", []string{"58", "59"}},
+		{"58,59", []string{"58", "59"}},
+		{"1, 2, 3", []string{"1", "2", "3"}},
+		{"  42  ", []string{"42"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.label, func(t *testing.T) {
+			got := labelStems(tt.label)
+			if len(got) != len(tt.want) {
+				t.Fatalf("labelStems(%q) = %v, want %v", tt.label, got, tt.want)
+			}
+			for i := range got {
+				if got[i] != tt.want[i] {
+					t.Errorf("labelStems(%q)[%d] = %q, want %q", tt.label, i, got[i], tt.want[i])
+				}
+			}
+		})
+	}
+}
+
 // ===================== deriveImagePaths =====================
 
 func TestDeriveImagePaths(t *testing.T) {
@@ -221,7 +249,7 @@ func TestDeriveImagePaths(t *testing.T) {
 	os.Mkdir(imgDir, 0755)
 
 	// Create test image files.
-	for _, name := range []string{"42.jpg", "58-59.jpg", "100.png"} {
+	for _, name := range []string{"42.jpg", "58.jpg", "59.jpg", "58-59.jpg", "100.png"} {
 		os.WriteFile(filepath.Join(imgDir, name), []byte("fake-image"), 0644)
 	}
 
@@ -230,8 +258,8 @@ func TestDeriveImagePaths(t *testing.T) {
 		wantCount int
 	}{
 		{"42", 1},
-		{"58, 59", 1},  // comma-space normalized to hyphen
-		{"58–59", 1},   // en dash normalized
+		{"58, 59", 2},  // compound: finds 58.jpg and 59.jpg individually
+		{"58–59", 1},   // en dash normalized to simple "58-59" stem
 		{"100", 1},     // png extension
 		{"999", 0},     // no matching images
 	}
@@ -459,7 +487,8 @@ func TestGetUnpostedTextAndImagesByID_CompoundLabel(t *testing.T) {
 
 	imgDir := filepath.Join(tmpDir, "images")
 	os.Mkdir(imgDir, 0755)
-	os.WriteFile(filepath.Join(imgDir, "58-59.jpg"), []byte("fake-image"), 0644)
+	os.WriteFile(filepath.Join(imgDir, "58.jpg"), []byte("fake-image"), 0644)
+	os.WriteFile(filepath.Join(imgDir, "59.jpg"), []byte("fake-image"), 0644)
 
 	db.Exec(`INSERT INTO texts (id, label, text_body) VALUES (58, '58, 59', 'A compound verse')`)
 
@@ -473,8 +502,8 @@ func TestGetUnpostedTextAndImagesByID_CompoundLabel(t *testing.T) {
 	if txt.Label != "58, 59" {
 		t.Errorf("expected Label='58, 59', got %q", txt.Label)
 	}
-	if len(txt.Images) != 1 {
-		t.Errorf("expected 1 image for compound label, got %d: %v", len(txt.Images), txt.Images)
+	if len(txt.Images) != 2 {
+		t.Errorf("expected 2 images for compound label, got %d: %v", len(txt.Images), txt.Images)
 	}
 }
 

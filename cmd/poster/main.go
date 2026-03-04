@@ -144,20 +144,20 @@ LIMIT 1;
 
 // deriveImagePaths returns up to 4 existing image paths based on the label.
 //
-// Conventions supported (in order):
+// For compound labels (containing commas, e.g., "58, 59"), each part is
+// treated as a separate stem — so "58, 59" looks for 58.jpg, 59.jpg, etc.
 //
-//	images/<norm>.jpg|.png|.webp
-//	images/<norm>-1.jpg|.png|.webp
-//	images/<norm>-2.jpg|.png|.webp
-//	images/<norm>-3.jpg|.png|.webp
-//	images/<norm>-4.jpg|.png|.webp
+// For simple labels, the normalized label is used as the stem.
 //
-// where <norm> is the label normalized:
-//   - ", " and "," -> "-" (e.g., "58, 59" -> "58-59")
-//   - "–" (en dash) -> "-"
-//   - spaces removed
+// Conventions supported (in order, per stem):
+//
+//	images/<stem>.jpg|.png|.webp
+//	images/<stem>-1.jpg|.png|.webp
+//	images/<stem>-2.jpg|.png|.webp
+//	images/<stem>-3.jpg|.png|.webp
+//	images/<stem>-4.jpg|.png|.webp
 func deriveImagePaths(label string) ([]string, error) {
-	norm := normalizeLabel(label)
+	stems := labelStems(label)
 	dir := "images"
 
 	var candidates []string
@@ -168,11 +168,16 @@ func deriveImagePaths(label string) ([]string, error) {
 			filepath.Join(dir, stem+".webp"),
 		)
 	}
-	add(norm)
-	add(norm + "-1")
-	add(norm + "-2")
-	add(norm + "-3")
-	add(norm + "-4")
+
+	// Base images first (one per stem), then numbered variants.
+	for _, s := range stems {
+		add(s)
+	}
+	for _, s := range stems {
+		for i := 1; i <= 4; i++ {
+			add(fmt.Sprintf("%s-%d", s, i))
+		}
+	}
 
 	var out []string
 	seen := map[string]bool{}
@@ -191,6 +196,27 @@ func deriveImagePaths(label string) ([]string, error) {
 	}
 	// ok if zero images; tweet will be text-only
 	return out, nil
+}
+
+// labelStems splits a label into individual stems for image lookup.
+// Compound labels like "58, 59" yield ["58", "59"].
+// Simple labels like "151" yield ["151"].
+func labelStems(label string) []string {
+	s := strings.TrimSpace(label)
+	if strings.Contains(s, ",") {
+		parts := strings.Split(s, ",")
+		var stems []string
+		for _, p := range parts {
+			p = strings.TrimSpace(p)
+			if p != "" {
+				p = strings.ReplaceAll(p, "–", "-")
+				p = strings.ReplaceAll(p, " ", "")
+				stems = append(stems, p)
+			}
+		}
+		return stems
+	}
+	return []string{normalizeLabel(label)}
 }
 
 func normalizeLabel(label string) string {
