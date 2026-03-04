@@ -208,6 +208,34 @@ func TestEnsureFile(t *testing.T) {
 	}
 }
 
+// ===================== labelStems =====================
+
+func TestLabelStems(t *testing.T) {
+	tests := []struct {
+		label string
+		want  []string
+	}{
+		{"151", []string{"151"}},
+		{"58, 59", []string{"58", "59"}},
+		{"58,59", []string{"58", "59"}},
+		{"1, 2, 3", []string{"1", "2", "3"}},
+		{"  42  ", []string{"42"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.label, func(t *testing.T) {
+			got := labelStems(tt.label)
+			if len(got) != len(tt.want) {
+				t.Fatalf("labelStems(%q) = %v, want %v", tt.label, got, tt.want)
+			}
+			for i := range got {
+				if got[i] != tt.want[i] {
+					t.Errorf("labelStems(%q)[%d] = %q, want %q", tt.label, i, got[i], tt.want[i])
+				}
+			}
+		})
+	}
+}
+
 // ===================== deriveImagePaths =====================
 
 func TestDeriveImagePaths(t *testing.T) {
@@ -221,7 +249,7 @@ func TestDeriveImagePaths(t *testing.T) {
 	os.Mkdir(imgDir, 0755)
 
 	// Create test image files.
-	for _, name := range []string{"42.jpg", "58-59.jpg", "100.png"} {
+	for _, name := range []string{"42.jpg", "58.jpg", "59.jpg", "58-59.jpg", "100.png"} {
 		os.WriteFile(filepath.Join(imgDir, name), []byte("fake-image"), 0644)
 	}
 
@@ -230,8 +258,8 @@ func TestDeriveImagePaths(t *testing.T) {
 		wantCount int
 	}{
 		{"42", 1},
-		{"58, 59", 1},  // comma-space normalized to hyphen
-		{"58–59", 1},   // en dash normalized
+		{"58, 59", 2},  // compound: finds 58.jpg and 59.jpg individually
+		{"58–59", 1},   // en dash normalized to simple "58-59" stem
 		{"100", 1},     // png extension
 		{"999", 0},     // no matching images
 	}
@@ -243,6 +271,21 @@ func TestDeriveImagePaths(t *testing.T) {
 			}
 			if len(paths) != tt.wantCount {
 				t.Errorf("deriveImagePaths(%q) returned %d paths, want %d: %v", tt.label, len(paths), tt.wantCount, paths)
+			}
+
+			if tt.label == "58, 59" {
+				want := map[string]bool{
+					filepath.Join("images", "58.jpg"): true,
+					filepath.Join("images", "59.jpg"): true,
+				}
+				for _, p := range paths {
+					if p == filepath.Join("images", "58-59.jpg") {
+						t.Fatalf("deriveImagePaths(%q) included combined stem image %q", tt.label, p)
+					}
+					if !want[p] {
+						t.Fatalf("deriveImagePaths(%q) returned unexpected image path %q", tt.label, p)
+					}
+				}
 			}
 		})
 	}
@@ -389,6 +432,139 @@ func TestGetRandomUnpostedTextAndImages_ReturnsUnposted(t *testing.T) {
 	}
 	if txt.ID != 1 || txt.Label != "42" || txt.Body != "The wise one" {
 		t.Errorf("unexpected text: %+v", txt)
+	}
+}
+
+// ===================== getUnpostedTextAndImagesByID =====================
+
+func TestGetUnpostedTextAndImagesByID_Found(t *testing.T) {
+	db := newTestDB(t)
+	defer db.Close()
+
+	origDir, _ := os.Getwd()
+	os.Chdir(t.TempDir())
+	defer os.Chdir(origDir)
+
+	db.Exec(`INSERT INTO texts (id, label, text_body) VALUES (10, '151', 'A wise verse')`)
+
+	txt, err := getUnpostedTextAndImagesByID(context.Background(), db, 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if txt.ID != 10 {
+		t.Errorf("expected ID=10, got %d", txt.ID)
+	}
+	if txt.Label != "151" {
+		t.Errorf("expected Label='151', got %q", txt.Label)
+	}
+	if txt.Body != "A wise verse" {
+		t.Errorf("expected Body='A wise verse', got %q", txt.Body)
+	}
+}
+
+func TestGetUnpostedTextAndImagesByID_NotFound(t *testing.T) {
+	db := newTestDB(t)
+	defer db.Close()
+
+	_, err := getUnpostedTextAndImagesByID(context.Background(), db, 999)
+	if err == nil {
+		t.Fatal("expected error for non-existent ID, got nil")
+	}
+	if !strings.Contains(err.Error(), "not found or already posted") {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+func TestGetUnpostedTextAndImagesByID_AlreadyPosted(t *testing.T) {
+	db := newTestDB(t)
+	defer db.Close()
+
+	db.Exec(`INSERT INTO texts (id, label, text_body, posted_at, x_post_id)
+		VALUES (5, '42', 'Posted verse', '2025-01-01', '12345')`)
+
+	_, err := getUnpostedTextAndImagesByID(context.Background(), db, 5)
+	if err == nil {
+		t.Fatal("expected error for already-posted text, got nil")
+	}
+	if !strings.Contains(err.Error(), "not found or already posted") {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+func TestGetUnpostedTextAndImagesByID_CompoundLabel(t *testing.T) {
+	db := newTestDB(t)
+	defer db.Close()
+
+	origDir, _ := os.Getwd()
+	tmpDir := t.TempDir()
+	os.Chdir(tmpDir)
+	defer os.Chdir(origDir)
+
+	imgDir := filepath.Join(tmpDir, "images")
+	os.Mkdir(imgDir, 0755)
+	os.WriteFile(filepath.Join(imgDir, "58.jpg"), []byte("fake-image"), 0644)
+	os.WriteFile(filepath.Join(imgDir, "59.jpg"), []byte("fake-image"), 0644)
+
+	db.Exec(`INSERT INTO texts (id, label, text_body) VALUES (58, '58, 59', 'A compound verse')`)
+
+	txt, err := getUnpostedTextAndImagesByID(context.Background(), db, 58)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if txt.ID != 58 {
+		t.Errorf("expected ID=58, got %d", txt.ID)
+	}
+	if txt.Label != "58, 59" {
+		t.Errorf("expected Label='58, 59', got %q", txt.Label)
+	}
+	if len(txt.Images) != 2 {
+		t.Errorf("expected 2 images for compound label, got %d: %v", len(txt.Images), txt.Images)
+	}
+}
+
+func TestGetUnpostedTextAndImagesByID_WithImages(t *testing.T) {
+	db := newTestDB(t)
+	defer db.Close()
+
+	origDir, _ := os.Getwd()
+	tmpDir := t.TempDir()
+	os.Chdir(tmpDir)
+	defer os.Chdir(origDir)
+
+	imgDir := filepath.Join(tmpDir, "images")
+	os.Mkdir(imgDir, 0755)
+	os.WriteFile(filepath.Join(imgDir, "7.jpg"), []byte("fake"), 0644)
+	os.WriteFile(filepath.Join(imgDir, "7-1.jpg"), []byte("fake"), 0644)
+
+	db.Exec(`INSERT INTO texts (id, label, text_body) VALUES (7, '7', 'Verse seven')`)
+
+	txt, err := getUnpostedTextAndImagesByID(context.Background(), db, 7)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(txt.Images) != 2 {
+		t.Errorf("expected 2 images, got %d: %v", len(txt.Images), txt.Images)
+	}
+}
+
+func TestGetUnpostedTextAndImagesByID_SelectsCorrectRow(t *testing.T) {
+	db := newTestDB(t)
+	defer db.Close()
+
+	origDir, _ := os.Getwd()
+	os.Chdir(t.TempDir())
+	defer os.Chdir(origDir)
+
+	db.Exec(`INSERT INTO texts (id, label, text_body) VALUES (1, '1', 'First verse')`)
+	db.Exec(`INSERT INTO texts (id, label, text_body) VALUES (2, '2', 'Second verse')`)
+	db.Exec(`INSERT INTO texts (id, label, text_body) VALUES (3, '3', 'Third verse')`)
+
+	txt, err := getUnpostedTextAndImagesByID(context.Background(), db, 2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if txt.ID != 2 || txt.Label != "2" || txt.Body != "Second verse" {
+		t.Errorf("expected text ID=2, got: %+v", txt)
 	}
 }
 
