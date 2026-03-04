@@ -119,6 +119,29 @@ LIMIT 1;
 	return t, nil
 }
 
+func getUnpostedTextAndImagesByID(ctx context.Context, db *sql.DB, id int64) (*model.Text, error) {
+	const pick = `
+SELECT id, label, text_body
+FROM texts
+WHERE id = ? AND posted_at IS NULL
+LIMIT 1;
+`
+	t := &model.Text{}
+	if err := db.QueryRowContext(ctx, pick, id).Scan(&t.ID, &t.Label, &t.Body); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, fmt.Errorf("text id=%d not found or already posted", id)
+		}
+		return nil, err
+	}
+
+	paths, err := deriveImagePaths(t.Label)
+	if err != nil {
+		return nil, err
+	}
+	t.Images = paths
+	return t, nil
+}
+
 // deriveImagePaths returns up to 4 existing image paths based on the label.
 //
 // Conventions supported (in order):

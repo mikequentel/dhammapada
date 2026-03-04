@@ -392,6 +392,138 @@ func TestGetRandomUnpostedTextAndImages_ReturnsUnposted(t *testing.T) {
 	}
 }
 
+// ===================== getUnpostedTextAndImagesByID =====================
+
+func TestGetUnpostedTextAndImagesByID_Found(t *testing.T) {
+	db := newTestDB(t)
+	defer db.Close()
+
+	origDir, _ := os.Getwd()
+	os.Chdir(t.TempDir())
+	defer os.Chdir(origDir)
+
+	db.Exec(`INSERT INTO texts (id, label, text_body) VALUES (10, '151', 'A wise verse')`)
+
+	txt, err := getUnpostedTextAndImagesByID(context.Background(), db, 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if txt.ID != 10 {
+		t.Errorf("expected ID=10, got %d", txt.ID)
+	}
+	if txt.Label != "151" {
+		t.Errorf("expected Label='151', got %q", txt.Label)
+	}
+	if txt.Body != "A wise verse" {
+		t.Errorf("expected Body='A wise verse', got %q", txt.Body)
+	}
+}
+
+func TestGetUnpostedTextAndImagesByID_NotFound(t *testing.T) {
+	db := newTestDB(t)
+	defer db.Close()
+
+	_, err := getUnpostedTextAndImagesByID(context.Background(), db, 999)
+	if err == nil {
+		t.Fatal("expected error for non-existent ID, got nil")
+	}
+	if !strings.Contains(err.Error(), "not found or already posted") {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+func TestGetUnpostedTextAndImagesByID_AlreadyPosted(t *testing.T) {
+	db := newTestDB(t)
+	defer db.Close()
+
+	db.Exec(`INSERT INTO texts (id, label, text_body, posted_at, x_post_id)
+		VALUES (5, '42', 'Posted verse', '2025-01-01', '12345')`)
+
+	_, err := getUnpostedTextAndImagesByID(context.Background(), db, 5)
+	if err == nil {
+		t.Fatal("expected error for already-posted text, got nil")
+	}
+	if !strings.Contains(err.Error(), "not found or already posted") {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+func TestGetUnpostedTextAndImagesByID_CompoundLabel(t *testing.T) {
+	db := newTestDB(t)
+	defer db.Close()
+
+	origDir, _ := os.Getwd()
+	tmpDir := t.TempDir()
+	os.Chdir(tmpDir)
+	defer os.Chdir(origDir)
+
+	imgDir := filepath.Join(tmpDir, "images")
+	os.Mkdir(imgDir, 0755)
+	os.WriteFile(filepath.Join(imgDir, "58-59.jpg"), []byte("fake-image"), 0644)
+
+	db.Exec(`INSERT INTO texts (id, label, text_body) VALUES (58, '58, 59', 'A compound verse')`)
+
+	txt, err := getUnpostedTextAndImagesByID(context.Background(), db, 58)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if txt.ID != 58 {
+		t.Errorf("expected ID=58, got %d", txt.ID)
+	}
+	if txt.Label != "58, 59" {
+		t.Errorf("expected Label='58, 59', got %q", txt.Label)
+	}
+	if len(txt.Images) != 1 {
+		t.Errorf("expected 1 image for compound label, got %d: %v", len(txt.Images), txt.Images)
+	}
+}
+
+func TestGetUnpostedTextAndImagesByID_WithImages(t *testing.T) {
+	db := newTestDB(t)
+	defer db.Close()
+
+	origDir, _ := os.Getwd()
+	tmpDir := t.TempDir()
+	os.Chdir(tmpDir)
+	defer os.Chdir(origDir)
+
+	imgDir := filepath.Join(tmpDir, "images")
+	os.Mkdir(imgDir, 0755)
+	os.WriteFile(filepath.Join(imgDir, "7.jpg"), []byte("fake"), 0644)
+	os.WriteFile(filepath.Join(imgDir, "7-1.jpg"), []byte("fake"), 0644)
+
+	db.Exec(`INSERT INTO texts (id, label, text_body) VALUES (7, '7', 'Verse seven')`)
+
+	txt, err := getUnpostedTextAndImagesByID(context.Background(), db, 7)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(txt.Images) != 2 {
+		t.Errorf("expected 2 images, got %d: %v", len(txt.Images), txt.Images)
+	}
+}
+
+func TestGetUnpostedTextAndImagesByID_SelectsCorrectRow(t *testing.T) {
+	db := newTestDB(t)
+	defer db.Close()
+
+	origDir, _ := os.Getwd()
+	os.Chdir(t.TempDir())
+	defer os.Chdir(origDir)
+
+	db.Exec(`INSERT INTO texts (id, label, text_body) VALUES (1, '1', 'First verse')`)
+	db.Exec(`INSERT INTO texts (id, label, text_body) VALUES (2, '2', 'Second verse')`)
+	db.Exec(`INSERT INTO texts (id, label, text_body) VALUES (3, '3', 'Third verse')`)
+
+	txt, err := getUnpostedTextAndImagesByID(context.Background(), db, 2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if txt.ID != 2 || txt.Label != "2" || txt.Body != "Second verse" {
+		t.Errorf("expected text ID=2, got: %+v", txt)
+	}
+}
+
 // ===================== createTweetV2 =====================
 
 func TestCreateTweetV2_Success(t *testing.T) {
