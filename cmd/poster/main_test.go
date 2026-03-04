@@ -272,6 +272,21 @@ func TestDeriveImagePaths(t *testing.T) {
 			if len(paths) != tt.wantCount {
 				t.Errorf("deriveImagePaths(%q) returned %d paths, want %d: %v", tt.label, len(paths), tt.wantCount, paths)
 			}
+
+			if tt.label == "58, 59" {
+				want := map[string]bool{
+					filepath.Join("images", "58.jpg"): true,
+					filepath.Join("images", "59.jpg"): true,
+				}
+				for _, p := range paths {
+					if p == filepath.Join("images", "58-59.jpg") {
+						t.Fatalf("deriveImagePaths(%q) included combined stem image %q", tt.label, p)
+					}
+					if !want[p] {
+						t.Fatalf("deriveImagePaths(%q) returned unexpected image path %q", tt.label, p)
+					}
+				}
+			}
 		})
 	}
 }
