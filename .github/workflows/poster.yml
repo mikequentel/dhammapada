@@ -65,3 +65,11 @@ jobs:
           tail -n 200 poster.log >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
           exit "$poster_status"
+
+      - name: keep_workflow_active
+        if: success() # only run if previous steps succeeded
+        run: |
+          curl -X PUT \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: bearer ${{ secrets.GITHUB_TOKEN }}" \
+            https://api.github.com/repos/${{ github.repository }}/actions/workflows/${{ github.workflow_id }}/enable
